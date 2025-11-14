@@ -1,0 +1,310 @@
+"""
+Détecteur audio pour les morsures de poisson
+Détecte le son "entity.bobber.splash" de Minecraft
+"""
+
+import sys
+import os
+
+# Ajouter le dossier parent au path pour pouvoir importer config
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+import numpy as np
+import sounddevice as sd
+from scipy import signal
+import time
+import queue
+import threading
+import config
+
+
+class SoundDetector:
+    """Détecteur audio pour les sons de morsure de poisson"""
+
+    def __init__(self):
+        """Initialise le détecteur audio"""
+        self.sample_rate = config.AUDIO_SAMPLE_RATE
+        self.chunk_size = config.AUDIO_CHUNK_SIZE
+        self.threshold = config.AUDIO_THRESHOLD
+
+        # Buffer pour stocker les données audio
+        self.audio_queue = queue.Queue()
+        self.is_listening = False
+        self.stream = None
+
+        # Historique des amplitudes pour détecter les pics
+        self.amplitude_history = []
+        self.history_size = 20
+
+        # Dernière détection
+        self.last_detection_time = 0
+        self.detection_cooldown = 0.5  # Éviter les doubles détections
+
+    def audio_callback(self, indata, frames, time_info, status):
+        """Callback appelé pour chaque bloc audio capturé"""
+        if status:
+            print(f"[SoundDetector] Status: {status}")
+
+        # Ajouter les données à la queue
+        self.audio_queue.put(indata.copy())
+
+    def start_listening(self):
+        """Démarre l'écoute audio"""
+        if self.is_listening:
+            return
+
+        try:
+            # Créer le stream audio
+            self.stream = sd.InputStream(
+                channels=1,
+                samplerate=self.sample_rate,
+                blocksize=self.chunk_size,
+                callback=self.audio_callback
+            )
+            self.stream.start()
+            self.is_listening = True
+            print(f"[SoundDetector] Écoute audio démarrée (sample rate: {self.sample_rate} Hz)")
+
+        except Exception as e:
+            print(f"[SoundDetector] Erreur lors du démarrage: {e}")
+            print("[SoundDetector] Assurez-vous qu'un microphone est connecté et accessible")
+            raise
+
+    def stop_listening(self):
+        """Arrête l'écoute audio"""
+        if not self.is_listening:
+            return
+
+        if self.stream:
+            self.stream.stop()
+            self.stream.close()
+            self.stream = None
+
+        self.is_listening = False
+        print("[SoundDetector] Écoute audio arrêtée")
+
+    def detect_splash_sound(self) -> bool:
+        """
+        Détecte un son de splash (morsure de poisson)
+
+        Returns:
+            True si un splash est détecté
+        """
+        if not self.is_listening:
+            return False
+
+        try:
+            # Récupérer les données audio
+            audio_data = self.audio_queue.get(timeout=0.1)
+
+            # Calculer l'amplitude RMS (Root Mean Square)
+            rms = np.sqrt(np.mean(audio_data**2))
+
+            # Convertir en décibels
+            if rms > 0:
+                db = 20 * np.log10(rms)
+            else:
+                db = -100
+
+            # Ajouter à l'historique
+            self.amplitude_history.append(rms)
+            if len(self.amplitude_history) > self.history_size:
+                self.amplitude_history.pop(0)
+
+            # Logger en mode DEBUG
+            if config.LOG_LEVEL == 'DEBUG':
+                print(f"[SoundDetector] RMS: {rms:.6f}, dB: {db:.2f}, Seuil: {self.threshold}")
+
+            # Détecter un pic sonore
+            if len(self.amplitude_history) >= 3:
+                # Moyenne des dernières valeurs
+                avg_amplitude = np.mean(self.amplitude_history[:-1])
+                current_amplitude = self.amplitude_history[-1]
+
+                # Vérifier si c'est un pic significatif
+                # Le son doit être au moins 3x plus fort que la moyenne
+                amplitude_ratio = current_amplitude / (avg_amplitude + 1e-6)
+
+                # Cooldown pour éviter les doubles détections
+                time_since_last = time.time() - self.last_detection_time
+
+                if (current_amplitude > self.threshold and
+                    amplitude_ratio > 3.0 and
+                    time_since_last > self.detection_cooldown):
+
+                    self.last_detection_time = time.time()
+                    print(f"[SoundDetector] 🎣 SPLASH DÉTECTÉ! RMS: {current_amplitude:.6f}, Ratio: {amplitude_ratio:.2f}x")
+                    return True
+
+            return False
+
+        except queue.Empty:
+            return False
+        except Exception as e:
+            if config.LOG_LEVEL == 'DEBUG':
+                print(f"[SoundDetector] Erreur: {e}")
+            return False
+
+    def wait_for_bite(self, timeout: float = None) -> bool:
+        """
+        Attend qu'un poisson morde (détection audio)
+
+        Args:
+            timeout: Temps d'attente maximum en secondes
+
+        Returns:
+            True si une morsure est détectée, False si timeout
+        """
+        if timeout is None:
+            timeout = config.MAX_WAIT_FOR_BITE
+
+        start_time = time.time()
+
+        # Démarrer l'écoute si pas déjà active
+        if not self.is_listening:
+            self.start_listening()
+            time.sleep(0.5)  # Laisser le temps au stream de démarrer
+
+        # Réinitialiser l'historique
+        self.amplitude_history = []
+
+        print(f"[SoundDetector] En attente d'un splash (timeout: {timeout}s)...")
+        print(f"[SoundDetector] Assurez-vous que le son de Minecraft est activé!")
+
+        while (time.time() - start_time) < timeout:
+            if self.detect_splash_sound():
+                print("[SoundDetector] OK - Morsure detectee par audio!")
+                return True
+
+            # Petit délai pour ne pas surcharger le CPU
+            time.sleep(0.01)
+
+        print("[SoundDetector] Timeout: aucune morsure detectee")
+        return False
+
+    def calibrate_threshold(self, duration: float = 10.0):
+        """
+        Calibre le seuil de détection en mesurant le bruit ambiant
+
+        Args:
+            duration: Durée de calibration en secondes
+        """
+        print(f"\n[SoundDetector] CALIBRATION DU SEUIL")
+        print("=" * 60)
+        print("Ne faites AUCUN bruit pendant la calibration...")
+        print(f"Mesure du bruit ambiant pendant {duration} secondes...")
+        print()
+
+        if not self.is_listening:
+            self.start_listening()
+            time.sleep(0.5)
+
+        amplitudes = []
+        start_time = time.time()
+
+        while (time.time() - start_time) < duration:
+            try:
+                audio_data = self.audio_queue.get(timeout=0.1)
+                rms = np.sqrt(np.mean(audio_data**2))
+                amplitudes.append(rms)
+
+                # Afficher la progression
+                progress = (time.time() - start_time) / duration * 100
+                print(f"\rProgression: {progress:.0f}% | RMS actuel: {rms:.6f}", end="")
+
+            except queue.Empty:
+                continue
+
+        print("\n")
+
+        if amplitudes:
+            avg_noise = np.mean(amplitudes)
+            max_noise = np.max(amplitudes)
+            std_noise = np.std(amplitudes)
+
+            # Le seuil recommandé est 5x le bruit maximum
+            recommended_threshold = max_noise * 5
+
+            print("Resultats de calibration:")
+            print(f"   Bruit moyen: {avg_noise:.6f}")
+            print(f"   Bruit maximum: {max_noise:.6f}")
+            print(f"   Ecart-type: {std_noise:.6f}")
+            print(f"   Seuil recommande: {recommended_threshold:.6f}")
+            print()
+            print(f"Ajoutez cette ligne dans config.py:")
+            print(f"   AUDIO_THRESHOLD = {recommended_threshold:.6f}")
+            print()
+        else:
+            print("ERREUR - Aucune donnee collectee!")
+
+    def test_detection(self, duration: float = 30.0):
+        """
+        Mode test pour vérifier la détection
+
+        Args:
+            duration: Durée du test en secondes
+        """
+        print(f"\n[SoundDetector] MODE TEST")
+        print("=" * 60)
+        print(f"Test de detection pendant {duration} secondes...")
+        print("Faites du bruit ou lancez une ligne de peche dans Minecraft!")
+        print("Les detections seront affichees en temps reel.")
+        print()
+
+        if not self.is_listening:
+            self.start_listening()
+            time.sleep(0.5)
+
+        start_time = time.time()
+        detection_count = 0
+
+        while (time.time() - start_time) < duration:
+            if self.detect_splash_sound():
+                detection_count += 1
+                elapsed = time.time() - start_time
+                print(f"[{elapsed:.1f}s] Detection #{detection_count}")
+
+            time.sleep(0.01)
+
+        print()
+        print(f"Test termine: {detection_count} detections en {duration}s")
+
+
+# Instance globale
+_sound_detector_instance = None
+
+
+def get_sound_detector() -> SoundDetector:
+    """
+    Obtient l'instance globale du détecteur audio
+
+    Returns:
+        Instance de SoundDetector
+    """
+    global _sound_detector_instance
+    if _sound_detector_instance is None:
+        _sound_detector_instance = SoundDetector()
+    return _sound_detector_instance
+
+
+if __name__ == "__main__":
+    import sys
+
+    print("Detecteur Audio de Morsure - Minecraft")
+    print()
+
+    if len(sys.argv) > 1 and sys.argv[1] == "calibrate":
+        # Mode calibration
+        detector = SoundDetector()
+        detector.calibrate_threshold(duration=10.0)
+    elif len(sys.argv) > 1 and sys.argv[1] == "test":
+        # Mode test
+        detector = SoundDetector()
+        detector.test_detection(duration=30.0)
+    else:
+        # Mode normal
+        print("Usage:")
+        print("  python audio/sound_detector.py calibrate  - Calibrer le seuil")
+        print("  python audio/sound_detector.py test       - Tester la detection")
+        print()
+        print("Ou utilisez directement le bot avec audio active!")

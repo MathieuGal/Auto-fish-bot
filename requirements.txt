@@ -1,0 +1,23 @@
+# Dépendances pour le Bot de Pêche Automatique Minecraft
+
+# Vision par ordinateur et détection d'images
+opencv-python>=4.8.0
+numpy>=1.24.0
+pillow>=10.0.0
+
+# Capture d'écran ultra-rapide
+mss>=9.0.0
+
+# Automation souris/clavier
+pyautogui>=0.9.54
+pydirectinput>=1.0.4
+
+# Gestion des hotkeys
+keyboard>=0.13.5
+
+# Détection audio
+sounddevice>=0.4.6
+scipy>=1.10.0
+
+# Utilitaires
+colorama>=0.4.6
