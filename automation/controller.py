@@ -39,7 +39,7 @@ class Controller:
         """Récupère la ligne (clic droit quand le poisson mord)"""
         print("[Action] Récupération de la ligne...")
         self.click_right()
-        time.sleep(0.2)
+        time.sleep(0.05)  # Réduit de 200ms à 50ms pour réaction plus rapide
 
     def perform_qte_click(self):
         """Effectue le clic pour le QTE (clic gauche)"""

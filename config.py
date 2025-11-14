@@ -18,8 +18,8 @@ EMERGENCY_STOP_KEY = 'esc'  # Touche d'arrêt d'urgence
 # ==================== TIMINGS ====================
 # Délais en secondes
 CAST_DELAY = 1.0  # Délai après avoir lancé la ligne (augmenté pour stabilisation)
-QTE_REACTION_TIME = 0.05  # Temps de réaction pour les QTE (50ms)
-POST_QTE_DELAY = 0.5  # Délai après un QTE avant le prochain
+QTE_REACTION_TIME = 0.03  # Temps de réaction pour les QTE (30ms - optimisé)
+POST_QTE_DELAY = 0.3  # Délai après un QTE avant le prochain (réduit pour réactivité)
 BITE_CHECK_INTERVAL = 0.2  # Intervalle de vérification pour les morsures (200ms)
 MAX_WAIT_FOR_BITE = 60  # Temps d'attente maximum pour une morsure (secondes)
 BITE_DETECTION_THRESHOLD = 0.25  # Seuil de différence pour détecter une morsure (0-1) - Augmenté pour éviter faux positifs

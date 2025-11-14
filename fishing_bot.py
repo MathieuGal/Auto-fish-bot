@@ -130,8 +130,8 @@ class FishingBot:
             print(f"{Fore.CYAN}[3/4] Récupération de la ligne...")
             self.controller.reel_in()
 
-            # Petit délai pour que les QTE apparaissent
-            time.sleep(0.3)
+            # Petit délai pour que les QTE apparaissent (réduit pour réaction plus rapide)
+            time.sleep(0.1)  # Réduit de 300ms à 100ms
 
             # Étape 4: Exécuter les QTE (entre 1 et 6 QTE)
             print(f"{Fore.CYAN}[4/4] Exécution des QTE...")
@@ -202,7 +202,7 @@ class FishingBot:
                 consecutive_failures = 0
             else:
                 # Continuer à surveiller
-                time.sleep(0.01)  # Check très rapide (10ms)
+                time.sleep(0.005)  # Check ultra rapide (5ms - optimisé)
 
         print(f"{Fore.GREEN}  QTE: Tous les QTE terminés ({qte_count}/{max_qte})")
         return True

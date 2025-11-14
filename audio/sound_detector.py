@@ -38,7 +38,7 @@ class SoundDetector:
 
         # Dernière détection
         self.last_detection_time = 0
-        self.detection_cooldown = 0.5  # Éviter les doubles détections
+        self.detection_cooldown = 0.3  # Éviter les doubles détections (réduit pour meilleure réactivité)
 
     def audio_callback(self, indata, frames, time_info, status):
         """Callback appelé pour chaque bloc audio capturé"""
@@ -176,8 +176,8 @@ class SoundDetector:
                 print("[SoundDetector] OK - Morsure detectee par audio!")
                 return True
 
-            # Petit délai pour ne pas surcharger le CPU
-            time.sleep(0.01)
+            # Petit délai pour ne pas surcharger le CPU (réduit pour meilleure réactivité)
+            time.sleep(0.005)  # Réduit de 10ms à 5ms
 
         print("[SoundDetector] Timeout: aucune morsure detectee")
         return False
