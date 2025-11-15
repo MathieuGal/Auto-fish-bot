@@ -21,7 +21,7 @@ QTE_REACTION_TIME = 0.03  # Temps de réaction pour les QTE (30ms - optimisé)
 QTE_SAFETY_DELAY = 0.05  # Délai de sécurité avant de cliquer sur un QTE (50ms pour être sûr de l'alignement)
 POST_QTE_DELAY = 0.3  # Délai après un QTE avant le prochain (réduit pour réactivité)
 BITE_CHECK_INTERVAL = 0.2  # Intervalle de vérification pour les morsures (200ms)
-MAX_WAIT_FOR_BITE = 90  # Temps d'attente maximum pour une morsure (secondes)
+MAX_WAIT_FOR_BITE = 240  # Temps d'attente maximum pour une morsure (secondes)
 BITE_DETECTION_THRESHOLD = 0.25  # Seuil de différence pour détecter une morsure (0-1) - Augmenté pour éviter faux positifs
 
 # ==================== DÉTECTION VISUELLE ====================
