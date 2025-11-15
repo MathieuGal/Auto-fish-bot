@@ -147,7 +147,7 @@ class FishingBot:
             print(f"{Fore.RED}Erreur dans le cycle de pêche: {e}")
             return False
 
-    def handle_qte_sequence(self, max_qte: int = 6, qte_sequence_timeout: float = 15.0) -> bool:
+    def handle_qte_sequence(self, max_qte: int = 8, qte_sequence_timeout: float = 15.0) -> bool:
         """
         Gère la séquence de QTE - MÉTHODE SIMPLE ET ROBUSTE
         Fait jusqu'à 6 QTE maximum avec un timeout global de 15 secondes

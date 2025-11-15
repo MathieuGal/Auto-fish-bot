@@ -24,13 +24,14 @@ class QTEDetector:
         # Auto-détection de la résolution d'écran
         self.screen_width, self.screen_height = self._get_screen_resolution()
 
-        # Calculer la région de détection QTE dynamiquement (centre de l'écran)
-        # Par défaut : 40% de largeur × 50% de hauteur au centre
-        region_scale = getattr(config, 'QTE_REGION_SCALE', 0.4)
+        # Calculer la région de détection QTE dynamiquement
+        # Optimisée pour couvrir la zone de pêche (centre-bas de l'écran)
+        # Par défaut : 50% de largeur × 65% de hauteur, décalée vers le bas
+        region_scale = getattr(config, 'QTE_REGION_SCALE', 0.5)  # Augmenté de 0.4 à 0.5
         region_width = int(self.screen_width * region_scale)
-        region_height = int(self.screen_height * 0.5)
-        region_x = (self.screen_width - region_width) // 2
-        region_y = (self.screen_height - region_height) // 2
+        region_height = int(self.screen_height * 0.65)  # Augmenté de 0.5 à 0.65
+        region_x = (self.screen_width - region_width) // 2  # Centré horizontalement
+        region_y = int(self.screen_height * 0.18)  # Commence à 18% du haut (vs 25% avant)
 
         self.qte_region = (region_x, region_y, region_width, region_height)
 

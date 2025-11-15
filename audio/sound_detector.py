@@ -35,8 +35,8 @@ class SoundDetector:
         self.recording_thread = None
         self.stop_recording = threading.Event()
 
-        # Buffer pour stocker les données audio
-        self.audio_queue = queue.Queue()
+        # Buffer pour stocker les données audio (taille augmentée pour éviter pertes)
+        self.audio_queue = queue.Queue(maxsize=100)  # Buffer plus grand pour gérer les pics
 
         # Historique des amplitudes pour détecter les pics
         self.amplitude_history = []
@@ -90,8 +90,16 @@ class SoundDetector:
                     if len(data.shape) > 1 and data.shape[1] > 1:
                         data = np.mean(data, axis=1)
 
-                    # Ajouter à la queue
-                    self.audio_queue.put(data.copy())
+                    # Ajouter à la queue (avec gestion si pleine)
+                    try:
+                        self.audio_queue.put(data.copy(), timeout=0.1)
+                    except queue.Full:
+                        # Queue pleine, supprimer ancien élément et réessayer
+                        try:
+                            self.audio_queue.get_nowait()
+                            self.audio_queue.put(data.copy(), timeout=0.1)
+                        except (queue.Empty, queue.Full):
+                            pass  # Ignorer si échec
 
         except Exception as e:
             print(f"[SoundDetector] Erreur dans la boucle d'enregistrement: {e}")
