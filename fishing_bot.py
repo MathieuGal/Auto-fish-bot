@@ -176,8 +176,8 @@ class FishingBot:
                 print(f"{Fore.CYAN}  QTE: Relance de la ligne...")
                 return True
 
-            # Capturer l'écran pour les cercles QTE
-            screen = capture_screen(config.QTE_DETECTION_REGION)
+            # Capturer l'écran pour les cercles QTE (région optimisée auto-détectée)
+            screen = capture_screen(self.qte_detector.qte_region)
 
             # Détecter les cercles
             red_circle, white_circle = self.qte_detector.detect_circles(screen)

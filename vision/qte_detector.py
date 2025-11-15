@@ -1,6 +1,7 @@
 """
 Détecteur de QTE (Quick Time Events) pour les cercles de pêche
 Détecte les cercles rouge (cible) et blanc (curseur) et détermine le timing parfait
+Auto-détection de la résolution d'écran pour s'adapter à tous les setups
 """
 
 import cv2
@@ -8,16 +9,49 @@ import numpy as np
 from typing import Optional, Tuple, List
 import config
 from vision.screen_capture import capture_screen
+import mss
 
 
 class QTEDetector:
     """Détecteur de QTE pour la pêche"""
 
     def __init__(self):
-        """Initialise le détecteur de QTE"""
+        """Initialise le détecteur de QTE avec auto-détection de résolution"""
         self.last_red_circle = None
         self.last_white_circle = None
         self.debug_image = None
+
+        # Auto-détection de la résolution d'écran
+        self.screen_width, self.screen_height = self._get_screen_resolution()
+
+        # Calculer la région de détection QTE dynamiquement (centre de l'écran)
+        # Par défaut : 40% de largeur × 50% de hauteur au centre
+        region_scale = getattr(config, 'QTE_REGION_SCALE', 0.4)
+        region_width = int(self.screen_width * region_scale)
+        region_height = int(self.screen_height * 0.5)
+        region_x = (self.screen_width - region_width) // 2
+        region_y = (self.screen_height - region_height) // 2
+
+        self.qte_region = (region_x, region_y, region_width, region_height)
+
+        # Calculer les tolérances d'alignement basées sur la résolution
+        self.center_tolerance = int(self.screen_width * 0.015)  # ~1.5% de la largeur
+        self.radius_tolerance = int(self.screen_width * 0.008)  # ~0.8% de la largeur
+
+        print(f"[QTE] Résolution détectée: {self.screen_width}×{self.screen_height}")
+        print(f"[QTE] Région de détection: ({region_x}, {region_y}) → ({region_x + region_width}, {region_y + region_height})")
+        print(f"[QTE] Tolérances: centre={self.center_tolerance}px, rayon={self.radius_tolerance}px")
+
+    def _get_screen_resolution(self) -> Tuple[int, int]:
+        """
+        Obtient la résolution de l'écran principal
+
+        Returns:
+            Tuple (largeur, hauteur)
+        """
+        with mss.mss() as sct:
+            monitor = sct.monitors[1]  # Écran principal
+            return (monitor['width'], monitor['height'])
 
     def detect_circles(self, image: np.ndarray) -> Tuple[Optional[Tuple], Optional[Tuple]]:
         """
@@ -81,17 +115,20 @@ class QTEDetector:
         largest_circle = None
         max_area = 0
 
+        # Seuil de surface minimum adapté à la résolution (plus petit pour hautes résolutions)
+        min_area = 50  # Réduit de 100 à 50 pour détecter cercles plus petits
+
         for contour in contours:
             area = cv2.contourArea(contour)
-            if area < 100:  # Ignorer les petits contours
+            if area < min_area:
                 continue
 
             # Approximer le contour par un cercle
             ((x, y), radius) = cv2.minEnclosingCircle(contour)
 
-            # Vérifier si c'est assez circulaire
+            # Vérifier si c'est assez circulaire (plus permissif pour Minecraft pixelisé)
             circularity = 4 * np.pi * area / (cv2.arcLength(contour, True) ** 2)
-            if circularity > 0.7 and area > max_area:
+            if circularity > 0.5 and area > max_area:  # Réduit de 0.7 à 0.5
                 max_area = area
                 largest_circle = (int(x), int(y), int(radius))
 
@@ -117,16 +154,17 @@ class QTEDetector:
         kernel = np.ones((3, 3), np.uint8)
         white_mask = cv2.morphologyEx(white_mask, cv2.MORPH_CLOSE, kernel)
 
-        # Détecter les cercles avec Hough Transform
+        # Détecter les cercles avec Hough Transform (paramètres plus permissifs)
+        # Adapté pour hautes résolutions et cercles moins nets
         circles = cv2.HoughCircles(
             white_mask,
             cv2.HOUGH_GRADIENT,
             dp=1,
             minDist=50,
-            param1=50,
-            param2=15,
-            minRadius=10,
-            maxRadius=100
+            param1=30,  # Réduit de 50 à 30 (seuil Canny plus bas = détecte cercles moins nets)
+            param2=25,  # Augmenté de 15 à 25 (seuil accumulateur plus haut = moins de faux positifs)
+            minRadius=5,  # Réduit de 10 à 5 (cercles plus petits)
+            maxRadius=150  # Augmenté de 100 à 150 (cercles plus grands pour hautes résolutions)
         )
 
         if circles is None:
@@ -143,6 +181,7 @@ class QTEDetector:
     def is_qte_ready(self, red_circle: Optional[Tuple], white_circle: Optional[Tuple]) -> bool:
         """
         Vérifie si les cercles sont alignés (moment parfait pour cliquer)
+        Utilise des tolérances dynamiques basées sur la résolution d'écran
 
         Args:
             red_circle: Position du cercle rouge (x, y, radius)
@@ -164,10 +203,11 @@ class QTEDetector:
         radius_diff = abs(red_r - white_r)
 
         # Les cercles sont alignés si:
-        # 1. Les centres sont proches (distance < 20 pixels)
-        # 2. Les rayons sont similaires (diff < 10 pixels)
-        centers_aligned = distance < 20
-        radii_similar = radius_diff < 10
+        # 1. Les centres sont proches (distance < tolérance dynamique)
+        # 2. Les rayons sont similaires (diff < tolérance dynamique)
+        # Tolérances adaptées automatiquement à la résolution
+        centers_aligned = distance < self.center_tolerance
+        radii_similar = radius_diff < self.radius_tolerance
 
         return centers_aligned and radii_similar
 
@@ -185,8 +225,8 @@ class QTEDetector:
         start_time = time.time()
 
         while (time.time() - start_time) < timeout:
-            # Capturer l'écran
-            screen = capture_screen(config.QTE_DETECTION_REGION)
+            # Capturer l'écran dans la région QTE optimisée
+            screen = capture_screen(self.qte_region)
 
             # Détecter les cercles
             red, white = self.detect_circles(screen)

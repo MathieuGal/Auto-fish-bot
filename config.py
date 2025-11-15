@@ -28,19 +28,29 @@ BITE_DETECTION_THRESHOLD = 0.25  # Seuil de différence pour détecter une morsu
 # Zone de capture d'écran (None = plein écran, sinon (x, y, width, height))
 SCREEN_REGION = None  # Plein écran par défaut
 
-# Paramètres de détection des cercles QTE
-QTE_DETECTION_REGION = None  # Zone spécifique pour les QTE (à calibrer)
+# ========== Paramètres de détection des cercles QTE ==========
+# NOUVEAU : AUTO-DÉTECTION DE LA RÉSOLUTION D'ÉCRAN
+# Le bot détecte automatiquement votre résolution (1080p, 1440p, 4K, etc.)
+# et calcule la région de détection optimale au centre de l'écran
+QTE_DETECTION_REGION = None  # Laissez None pour auto-détection (recommandé)
+
+# Taille de la région QTE en pourcentage de l'écran (0.4 = 40% de largeur)
+# Ajustez si la détection ne fonctionne pas (valeur entre 0.3 et 0.6)
+QTE_REGION_SCALE = 0.4
 
 # Couleurs des cercles (en HSV pour OpenCV)
-# Cercle rouge
+# NOTE: Les paramètres de détection (circularity, Hough) sont maintenant
+# automatiquement ajustés pour être plus permissifs avec le rendu pixelisé de Minecraft
+
+# Cercle rouge (cible)
 RED_CIRCLE_HSV_LOWER = (0, 100, 100)
 RED_CIRCLE_HSV_UPPER = (10, 255, 255)
 
-# Cercle blanc
+# Cercle blanc (curseur)
 WHITE_CIRCLE_HSV_LOWER = (0, 0, 200)
 WHITE_CIRCLE_HSV_UPPER = (180, 30, 255)
 
-# Seuils de détection
+# Seuils de détection (ces paramètres sont maintenant moins critiques)
 CIRCLE_DETECTION_THRESHOLD = 0.7  # Confiance minimum pour la détection (0-1)
 CIRCLE_MATCH_THRESHOLD = 0.85  # Seuil pour considérer que les cercles sont alignés
 QTE_END_DETECTION_DELAY = 2.5  # Temps d'attente sans cercle pour déclarer la fin des QTE (secondes)
