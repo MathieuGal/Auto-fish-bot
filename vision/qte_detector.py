@@ -35,8 +35,9 @@ class QTEDetector:
         self.qte_region = (region_x, region_y, region_width, region_height)
 
         # Calculer les tolérances d'alignement basées sur la résolution
-        self.center_tolerance = int(self.screen_width * 0.015)  # ~1.5% de la largeur
-        self.radius_tolerance = int(self.screen_width * 0.008)  # ~0.8% de la largeur
+        # Tolérances réduites pour cliquer seulement quand parfaitement aligné
+        self.center_tolerance = int(self.screen_width * 0.010)  # ~1.0% de la largeur (réduit)
+        self.radius_tolerance = int(self.screen_width * 0.005)  # ~0.5% de la largeur (réduit)
 
         print(f"[QTE] Résolution détectée: {self.screen_width}×{self.screen_height}")
         print(f"[QTE] Région de détection: ({region_x}, {region_y}) → ({region_x + region_width}, {region_y + region_height})")
