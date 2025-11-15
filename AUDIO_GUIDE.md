@@ -2,12 +2,22 @@
 
 La détection audio est maintenant **activée par défaut** car elle est **beaucoup plus fiable** que la détection visuelle!
 
+## 🎉 NOUVEAU : Capture Audio Directe (WASAPI Loopback)
+
+Le bot capture maintenant **directement l'audio de sortie de votre PC** via WASAPI loopback !
+
+✅ **Plus besoin de microphone !**
+✅ **Plus besoin de câble loopback !**
+✅ **Plus besoin de Stereo Mix !**
+✅ **Capture directe de l'audio système de Windows**
+
 ## Pourquoi l'Audio?
 
 ✅ **Aucun faux positif** - Le son de splash est unique et reconnaissable
 ✅ **Plus rapide** - Pas besoin d'analyser des images
 ✅ **Fonctionne en arrière-plan** - Même si Minecraft n'est pas au premier plan
 ✅ **Pas de calibration complexe** - Juste ajuster un seuil simple
+✅ **Capture directe** - Écoute directement la sortie audio du système (WASAPI)
 
 ## Configuration Requise
 
@@ -20,14 +30,16 @@ Dans Minecraft:
 - Vérifiez que **"Master Volume"** n'est pas à 0%
 - Vérifiez que **"Friendly Creatures"** n'est pas à 0% (c'est la catégorie des sons de pêche)
 
-### 2. Périphérique Audio
+### 2. Audio Système (WASAPI Loopback)
 
-Le bot utilise votre **microphone par défaut** pour "écouter" les sons du PC.
+Le bot utilise maintenant **WASAPI loopback** pour capturer directement l'audio de sortie de Windows.
 
-**Options:**
-1. **Câble de loopback audio** (recommandé) - Redirige le son de sortie vers l'entrée
-2. **Microphone près des haut-parleurs** (simple mais peut capter d'autres bruits)
-3. **"Stereo Mix"** si disponible sur Windows
+**Aucune configuration nécessaire !** Le bot détecte automatiquement votre sortie audio par défaut.
+
+⚠️ **Important:**
+- Le bot capte **TOUT l'audio système** (pas seulement Minecraft)
+- Pour de meilleurs résultats, évitez d'avoir d'autres applications qui font du bruit pendant que vous pêchez
+- Le volume de Minecraft doit être suffisamment élevé pour être détecté
 
 ## Première Utilisation
 
@@ -132,28 +144,34 @@ amplitude_ratio > 3.0  # Changez 3.0 en 2.5 (plus sensible) ou 4.0 (moins sensib
 
 ## Dépannage
 
-### Erreur: "No module named 'sounddevice'"
+### Erreur: "No module named 'soundcard'"
 
 Installez les dépendances :
 
 ```bash
-pip install sounddevice scipy
+pip install soundcard scipy
 ```
 
-### Erreur: "Aucun périphérique audio trouvé"
+Ou utilisez le fichier requirements.txt :
 
-Vérifiez que vous avez un microphone connecté :
-
-```python
-import sounddevice as sd
-print(sd.query_devices())
+```bash
+pip install -r requirements.txt
 ```
+
+### Erreur: "Aucun haut-parleur par défaut trouvé"
+
+Vérifiez que vous avez une sortie audio configurée dans Windows :
+
+1. **Paramètres Windows** → **Son**
+2. Assurez-vous qu'un périphérique de sortie est défini par défaut
+3. Vérifiez que le périphérique n'est pas désactivé
 
 ### Le bot n'entend rien
 
 1. Vérifiez que le son de Minecraft est activé et **assez fort**
 2. Augmentez le volume des "Friendly Creatures" dans Minecraft
-3. Utilisez un câble de loopback audio ou "Stereo Mix"
+3. **NOUVEAU:** Vérifiez que le volume système de Windows n'est pas coupé
+4. Testez en jouant de la musique - si vous l'entendez, le bot devrait aussi la capter
 
 ### Sons parasites détectés
 

@@ -4,7 +4,8 @@ Bot automatique pour la pêche sur serveurs Minecraft moddés avec système de Q
 
 ## Fonctionnalités
 
-- **Détection automatique** des morsures de poisson
+- **🔊 Détection audio WASAPI loopback** : capture directe de l'audio système (plus besoin de micro!)
+- **Détection automatique** des morsures de poisson par son OU vision
 - **Gestion intelligente des QTE** : détecte les cercles rouge et blanc et clique au moment parfait
 - **Support de 1 à 6 QTE consécutifs** par poisson
 - **Détection visuelle ultra-rapide** avec OpenCV et MSS
@@ -40,6 +41,8 @@ Les bibliothèques nécessaires :
 - `pyautogui` : Automation souris/clavier
 - `pydirectinput` : Automation compatible avec les jeux
 - `keyboard` : Gestion des hotkeys
+- `soundcard` : Capture audio système via WASAPI loopback
+- `scipy` : Traitement du signal audio
 - `colorama` : Couleurs dans le terminal
 
 ## Configuration
@@ -209,14 +212,46 @@ Le bot affiche des statistiques en temps réel :
 
 Ce bot est fourni à des fins éducatives et de démonstration des capacités de vision par ordinateur et d'automation Python.
 
+## Détection Audio 🔊
+
+Le bot utilise maintenant la **capture audio système directe** via WASAPI loopback!
+
+### Avantages
+- ✅ Plus fiable que la détection visuelle
+- ✅ Aucun faux positif
+- ✅ Plus besoin de microphone ou câble loopback
+- ✅ Capture directe de l'audio de sortie Windows
+- ✅ Fonctionne même si Minecraft est en arrière-plan
+
+### Test rapide
+
+Pour tester que le loopback fonctionne :
+
+```bash
+python test_loopback.py
+```
+
+Ce script affichera en temps réel l'audio capturé depuis votre système.
+
+### Configuration
+
+La détection audio est **activée par défaut** dans `config.py` :
+
+```python
+AUDIO_DETECTION_ENABLED = True
+AUDIO_THRESHOLD = 0.01  # À ajuster selon votre environnement
+```
+
+**📖 Pour plus de détails, consultez [AUDIO_GUIDE.md](AUDIO_GUIDE.md)**
+
 ## Améliorations futures possibles
 
-- [ ] Détection audio des morsures (nécessite PyAudio)
-- [ ] Machine Learning pour améliorer la précision
+- [ ] Machine Learning pour améliorer la précision des QTE
 - [ ] Support multi-écran
 - [ ] Interface graphique (GUI)
 - [ ] Système de profils pour différents serveurs
 - [ ] Détection automatique de la zone de pêche
+- [ ] Isolation audio par processus (capturer uniquement Minecraft)
 
 ## Contribution
 

@@ -7,6 +7,8 @@ import time
 import config
 from vision.fish_detector import get_fish_detector
 from vision.qte_detector import get_qte_detector
+from vision.success_detector import get_success_detector
+from vision.qte_counter_detector import get_qte_counter_detector
 from vision.screen_capture import capture_screen
 from automation.controller import get_controller
 from colorama import Fore, Style, init
@@ -27,6 +29,8 @@ class FishingBot:
         # Détecteurs
         self.fish_detector = get_fish_detector()
         self.qte_detector = get_qte_detector()
+        self.success_detector = get_success_detector()
+        self.qte_counter_detector = get_qte_counter_detector()
         self.controller = get_controller()
 
         # Détection audio si activée
@@ -57,14 +61,14 @@ class FishingBot:
         else:
             print(f"{Fore.CYAN}Mode: 👁️  Détection VISUELLE")
 
-        print(f"{Fore.YELLOW}Appuyez sur '{config.EMERGENCY_STOP_KEY}' pour arrêter d'urgence")
+        print(f"{Fore.YELLOW}Appuyez sur '{config.START_STOP_KEY}' pour arrêter le bot")
         print()
 
         try:
             while self.is_running:
-                # Vérifier l'arrêt d'urgence
-                if self.controller.is_emergency_stop_pressed():
-                    print(f"{Fore.RED}\nArrêt d'urgence détecté!")
+                # Vérifier l'arrêt (même touche que le démarrage)
+                if self.controller.is_stop_pressed():
+                    print(f"{Fore.RED}\nArrêt du bot détecté!")
                     break
 
                 # Vérifier la limite d'auto-stop
@@ -143,28 +147,36 @@ class FishingBot:
             print(f"{Fore.RED}Erreur dans le cycle de pêche: {e}")
             return False
 
-    def handle_qte_sequence(self, max_qte: int = 6, qte_timeout: float = 3.0) -> bool:
+    def handle_qte_sequence(self, max_qte: int = 6, qte_sequence_timeout: float = 15.0) -> bool:
         """
-        Gère la séquence de QTE (1 à 6 QTE possibles)
+        Gère la séquence de QTE - MÉTHODE SIMPLE ET ROBUSTE
+        Fait jusqu'à 6 QTE maximum avec un timeout global de 15 secondes
 
         Args:
-            max_qte: Nombre maximum de QTE possible
-            qte_timeout: Timeout pour chaque QTE
+            max_qte: Nombre maximum de QTE possible (6)
+            qte_sequence_timeout: Timeout total pour toute la séquence QTE (15s)
 
         Returns:
-            True si tous les QTE ont été réussis
+            True toujours (on relance après timeout ou 6 QTEs)
         """
         qte_count = 0
-        consecutive_failures = 0
+        sequence_start_time = time.time()
 
-        print(f"{Fore.MAGENTA}  QTE: En attente des cercles...")
+        print(f"{Fore.MAGENTA}  QTE: Recherche de cercles (max {max_qte} QTE, timeout {qte_sequence_timeout}s)...")
 
         while qte_count < max_qte:
-            # Vérifier l'arrêt d'urgence
-            if self.controller.is_emergency_stop_pressed():
+            # Vérifier l'arrêt
+            if self.controller.is_stop_pressed():
                 return False
 
-            # Capturer l'écran
+            # VÉRIFIER LE TIMEOUT GLOBAL
+            elapsed_time = time.time() - sequence_start_time
+            if elapsed_time >= qte_sequence_timeout:
+                print(f"{Fore.YELLOW}  QTE: Timeout de {qte_sequence_timeout}s atteint ({qte_count} QTE complétés)")
+                print(f"{Fore.CYAN}  QTE: Relance de la ligne...")
+                return True
+
+            # Capturer l'écran pour les cercles QTE
             screen = capture_screen(config.QTE_DETECTION_REGION)
 
             # Détecter les cercles
@@ -174,37 +186,26 @@ class FishingBot:
             if config.SHOW_DEBUG_WINDOW:
                 self.qte_detector.show_debug_window()
 
-            # Vérifier si les cercles sont présents
-            if red_circle is None:
-                # Plus de QTE, on a terminé
-                if qte_count > 0:
-                    print(f"{Fore.GREEN}  QTE: Séquence terminée ({qte_count} QTE réussis)")
-                    return True
-                else:
-                    # Aucun QTE détecté
-                    consecutive_failures += 1
-                    if consecutive_failures > 30:  # 3 secondes à 100ms par check
-                        print(f"{Fore.YELLOW}  QTE: Aucun cercle détecté")
-                        return False
-                    time.sleep(0.1)
-                    continue
-
             # Vérifier si c'est le moment de cliquer
-            if self.qte_detector.is_qte_ready(red_circle, white_circle):
+            if red_circle is not None and self.qte_detector.is_qte_ready(red_circle, white_circle):
+                # Délai de sécurité pour être sûr de l'alignement parfait
+                time.sleep(config.QTE_SAFETY_DELAY)
+
                 # CLIC GAUCHE pour le QTE!
                 self.controller.perform_qte_click()
                 qte_count += 1
                 self.qte_success += 1
-                print(f"{Fore.GREEN}  QTE #{qte_count}: Réussi!")
+                print(f"{Fore.GREEN}  QTE #{qte_count}/{max_qte}: Réussi!")
 
                 # Attendre que le QTE disparaisse avant de chercher le suivant
                 time.sleep(config.POST_QTE_DELAY)
-                consecutive_failures = 0
             else:
                 # Continuer à surveiller
                 time.sleep(0.005)  # Check ultra rapide (5ms - optimisé)
 
-        print(f"{Fore.GREEN}  QTE: Tous les QTE terminés ({qte_count}/{max_qte})")
+        # Si on arrive ici, on a fait les 6 QTE
+        print(f"{Fore.GREEN}  QTE: Maximum de {max_qte} QTE atteint!")
+        print(f"{Fore.CYAN}  QTE: Relance de la ligne...")
         return True
 
     def display_stats(self):

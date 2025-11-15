@@ -1,6 +1,7 @@
 """
 Détecteur audio pour les morsures de poisson
 Détecte le son "entity.bobber.splash" de Minecraft
+Utilise WASAPI loopback pour capturer l'audio système (sortie audio)
 """
 
 import sys
@@ -10,7 +11,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import numpy as np
-import sounddevice as sd
+import soundcard as sc
 from scipy import signal
 import time
 import queue
@@ -19,7 +20,7 @@ import config
 
 
 class SoundDetector:
-    """Détecteur audio pour les sons de morsure de poisson"""
+    """Détecteur audio pour les sons de morsure de poisson (via WASAPI loopback)"""
 
     def __init__(self):
         """Initialise le détecteur audio"""
@@ -27,10 +28,15 @@ class SoundDetector:
         self.chunk_size = config.AUDIO_CHUNK_SIZE
         self.threshold = config.AUDIO_THRESHOLD
 
+        # Périphérique loopback (audio système)
+        self.loopback_mic = None
+        self.recorder = None
+        self.is_listening = False
+        self.recording_thread = None
+        self.stop_recording = threading.Event()
+
         # Buffer pour stocker les données audio
         self.audio_queue = queue.Queue()
-        self.is_listening = False
-        self.stream = None
 
         # Historique des amplitudes pour détecter les pics
         self.amplitude_history = []
@@ -40,34 +46,73 @@ class SoundDetector:
         self.last_detection_time = 0
         self.detection_cooldown = 0.3  # Éviter les doubles détections (réduit pour meilleure réactivité)
 
-    def audio_callback(self, indata, frames, time_info, status):
-        """Callback appelé pour chaque bloc audio capturé"""
-        if status:
-            print(f"[SoundDetector] Status: {status}")
+        # Temps de démarrage de l'écoute (pour ignorer le bruit du lancer)
+        self.listening_start_time = 0
 
-        # Ajouter les données à la queue
-        self.audio_queue.put(indata.copy())
+        # Initialiser le périphérique loopback
+        self._init_loopback_device()
+
+    def _init_loopback_device(self):
+        """Initialise le périphérique de loopback (audio système)"""
+        try:
+            # Obtenir le haut-parleur par défaut comme source d'enregistrement (loopback)
+            default_speaker = sc.default_speaker()
+            if default_speaker is None:
+                raise RuntimeError("Aucun haut-parleur par défaut trouvé")
+
+            # Créer le microphone loopback
+            self.loopback_mic = sc.get_microphone(
+                id=str(default_speaker.name),
+                include_loopback=True
+            )
+            print(f"[SoundDetector] Périphérique loopback initialisé: {default_speaker.name}")
+
+        except Exception as e:
+            print(f"[SoundDetector] ERREUR lors de l'initialisation du loopback: {e}")
+            print("[SoundDetector] Assurez-vous que:")
+            print("  1. Votre système a une sortie audio active")
+            print("  2. Le son système n'est pas coupé")
+            print("  3. La bibliothèque soundcard est installée (pip install soundcard)")
+            raise
+
+    def _recording_loop(self):
+        """Boucle d'enregistrement en arrière-plan"""
+        try:
+            with self.loopback_mic.recorder(samplerate=self.sample_rate) as recorder:
+                self.recorder = recorder
+                print(f"[SoundDetector] Enregistrement démarré (loopback WASAPI)")
+
+                while not self.stop_recording.is_set():
+                    # Enregistrer un bloc audio
+                    data = recorder.record(numframes=self.chunk_size)
+
+                    # Convertir en mono si nécessaire (moyenne des canaux)
+                    if len(data.shape) > 1 and data.shape[1] > 1:
+                        data = np.mean(data, axis=1)
+
+                    # Ajouter à la queue
+                    self.audio_queue.put(data.copy())
+
+        except Exception as e:
+            print(f"[SoundDetector] Erreur dans la boucle d'enregistrement: {e}")
+        finally:
+            self.recorder = None
 
     def start_listening(self):
-        """Démarre l'écoute audio"""
+        """Démarre l'écoute audio (loopback système)"""
         if self.is_listening:
             return
 
         try:
-            # Créer le stream audio
-            self.stream = sd.InputStream(
-                channels=1,
-                samplerate=self.sample_rate,
-                blocksize=self.chunk_size,
-                callback=self.audio_callback
-            )
-            self.stream.start()
+            self.stop_recording.clear()
+            self.recording_thread = threading.Thread(target=self._recording_loop, daemon=True)
+            self.recording_thread.start()
             self.is_listening = True
-            print(f"[SoundDetector] Écoute audio démarrée (sample rate: {self.sample_rate} Hz)")
+            print(f"[SoundDetector] Capture audio système démarrée (WASAPI loopback)")
+            print(f"[SoundDetector] 🔊 Le bot écoute maintenant la SORTIE AUDIO de votre PC!")
 
         except Exception as e:
             print(f"[SoundDetector] Erreur lors du démarrage: {e}")
-            print("[SoundDetector] Assurez-vous qu'un microphone est connecté et accessible")
             raise
 
     def stop_listening(self):
@@ -75,13 +120,13 @@ class SoundDetector:
         if not self.is_listening:
             return
 
-        if self.stream:
-            self.stream.stop()
-            self.stream.close()
-            self.stream = None
+        self.stop_recording.set()
+        if self.recording_thread:
+            self.recording_thread.join(timeout=2.0)
+            self.recording_thread = None
 
         self.is_listening = False
-        print("[SoundDetector] Écoute audio arrêtée")
+        print("[SoundDetector] Capture audio système arrêtée")
 
     def detect_splash_sound(self) -> bool:
         """
@@ -128,6 +173,13 @@ class SoundDetector:
                 # Cooldown pour éviter les doubles détections
                 time_since_last = time.time() - self.last_detection_time
 
+                # Ignorer les sons pendant les premières secondes (bruit du lancer)
+                time_since_start = time.time() - self.listening_start_time
+                if time_since_start < config.AUDIO_IGNORE_AFTER_CAST:
+                    if config.LOG_LEVEL == 'DEBUG':
+                        print(f"[SoundDetector] Son ignoré (période de démarrage: {time_since_start:.1f}s / {config.AUDIO_IGNORE_AFTER_CAST}s)")
+                    return False
+
                 if (current_amplitude > self.threshold and
                     amplitude_ratio > 3.0 and
                     time_since_last > self.detection_cooldown):
@@ -165,11 +217,23 @@ class SoundDetector:
             self.start_listening()
             time.sleep(0.5)  # Laisser le temps au stream de démarrer
 
-        # Réinitialiser l'historique
+        # VIDER la queue audio pour éviter de traiter de vieilles données du cycle précédent
+        while not self.audio_queue.empty():
+            try:
+                self.audio_queue.get_nowait()
+            except queue.Empty:
+                break
+
+        if config.LOG_LEVEL == 'DEBUG':
+            print("[SoundDetector] Queue audio vidée - Prêt pour nouvelle détection")
+
+        # Réinitialiser l'historique et le temps de démarrage (pour ignorer le bruit du lancer)
         self.amplitude_history = []
+        self.listening_start_time = time.time()
 
         print(f"[SoundDetector] En attente d'un splash (timeout: {timeout}s)...")
-        print(f"[SoundDetector] Assurez-vous que le son de Minecraft est activé!")
+        print(f"[SoundDetector] 🔊 Assurez-vous que le son de Minecraft est activé et audible!")
+        print(f"[SoundDetector] ⏱️  Ignorer le son pendant {config.AUDIO_IGNORE_AFTER_CAST}s (bruit du lancer)...")
 
         while (time.time() - start_time) < timeout:
             if self.detect_splash_sound():

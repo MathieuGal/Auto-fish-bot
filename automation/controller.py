@@ -54,15 +54,15 @@ class Controller:
             print(f"[Attente] Pause humaine: {delay:.2f}s")
             time.sleep(delay)
 
-    def is_emergency_stop_pressed(self) -> bool:
+    def is_stop_pressed(self) -> bool:
         """
-        Vérifie si la touche d'arrêt d'urgence est pressée
+        Vérifie si la touche d'arrêt est pressée (même touche que démarrage)
 
         Returns:
-            True si la touche d'arrêt d'urgence est pressée
+            True si la touche d'arrêt est pressée
         """
         import keyboard
-        return keyboard.is_pressed(config.EMERGENCY_STOP_KEY)
+        return keyboard.is_pressed(config.START_STOP_KEY)
 
 
 # Instance globale

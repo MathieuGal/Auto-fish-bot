@@ -12,16 +12,16 @@ REEL_BUTTON = 'right'  # Bouton pour récupérer quand le poisson mord
 QTE_BUTTON = 'left'    # Bouton pour les QTE (clic gauche)
 
 # Hotkeys
-START_STOP_KEY = '-'  # Touche pour démarrer/arrêter le bot
-EMERGENCY_STOP_KEY = 'esc'  # Touche d'arrêt d'urgence
+START_STOP_KEY = '-'  # Touche pour démarrer/arrêter le bot (même touche pour les deux!)
 
 # ==================== TIMINGS ====================
 # Délais en secondes
 CAST_DELAY = 1.0  # Délai après avoir lancé la ligne (augmenté pour stabilisation)
 QTE_REACTION_TIME = 0.03  # Temps de réaction pour les QTE (30ms - optimisé)
+QTE_SAFETY_DELAY = 0.05  # Délai de sécurité avant de cliquer sur un QTE (50ms pour être sûr de l'alignement)
 POST_QTE_DELAY = 0.3  # Délai après un QTE avant le prochain (réduit pour réactivité)
 BITE_CHECK_INTERVAL = 0.2  # Intervalle de vérification pour les morsures (200ms)
-MAX_WAIT_FOR_BITE = 60  # Temps d'attente maximum pour une morsure (secondes)
+MAX_WAIT_FOR_BITE = 90  # Temps d'attente maximum pour une morsure (secondes)
 BITE_DETECTION_THRESHOLD = 0.25  # Seuil de différence pour détecter une morsure (0-1) - Augmenté pour éviter faux positifs
 
 # ==================== DÉTECTION VISUELLE ====================
@@ -43,18 +43,24 @@ WHITE_CIRCLE_HSV_UPPER = (180, 30, 255)
 # Seuils de détection
 CIRCLE_DETECTION_THRESHOLD = 0.7  # Confiance minimum pour la détection (0-1)
 CIRCLE_MATCH_THRESHOLD = 0.85  # Seuil pour considérer que les cercles sont alignés
+QTE_END_DETECTION_DELAY = 2.5  # Temps d'attente sans cercle pour déclarer la fin des QTE (secondes)
+
+# Détection du message de succès (DÉSACTIVÉ - cause des faux positifs)
+SUCCESS_DETECTION_ENABLED = False  # Détecter le message "PÊCHE Vous avez pêché..." pour terminer les QTE
+SUCCESS_CHECK_INTERVAL = 0.1  # Vérifier le message de succès toutes les X secondes
 
 # ==================== DÉTECTION AUDIO ====================
 # Paramètres audio - ACTIVÉ par défaut (plus fiable que visuel!)
 AUDIO_DETECTION_ENABLED = True  # Utilise la détection audio au lieu de visuelle
 AUDIO_SAMPLE_RATE = 44100  # Taux d'échantillonnage (Hz)
 AUDIO_CHUNK_SIZE = 1024  # Taille des blocs audio
-AUDIO_THRESHOLD = 0.01  # Seuil RMS pour détecter le son de splash (à calibrer!)
+AUDIO_THRESHOLD = 0.001  # Seuil RMS pour détecter le son de splash (à calibrer!)
+AUDIO_IGNORE_AFTER_CAST = 1.5  # Ignorer le son pendant X secondes après le lancer (évite de détecter le bruit de la canne)
 # Pour calibrer: python audio/sound_detector.py calibrate
 
 # ==================== LOGGING ====================
 # Niveau de logging (DEBUG, INFO, WARNING, ERROR)
-LOG_LEVEL = 'INFO'
+LOG_LEVEL = 'DEBUG'
 LOG_TO_FILE = True
 LOG_FILE = 'fishing_bot.log'
 

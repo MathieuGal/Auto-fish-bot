@@ -33,8 +33,8 @@ def print_instructions():
     print(f"  1. Lancez Minecraft et rejoignez votre serveur")
     print(f"  2. Équipez votre canne à pêche")
     print(f"  3. Placez-vous devant l'eau")
-    print(f"  4. Appuyez sur '{config.START_STOP_KEY.upper()}' pour démarrer/arrêter le bot")
-    print(f"  5. Appuyez sur '{config.EMERGENCY_STOP_KEY.upper()}' pour un arrêt d'urgence")
+    print(f"  4. Appuyez sur '{config.START_STOP_KEY.upper()}' pour démarrer le bot")
+    print(f"  5. Appuyez sur '{config.START_STOP_KEY.upper()}' pour arrêter le bot (même touche!)")
     print()
 
     print(f"{Fore.CYAN}Configuration:")
