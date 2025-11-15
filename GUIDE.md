@@ -31,9 +31,15 @@ Avant de commencer, vous avez besoin de :
 
 ### Étape 1 : Télécharger Python
 
+**⚠️ IMPORTANT : Téléchargez Python 3.10, 3.11 ou 3.12**
+
 1. Allez sur : https://www.python.org/downloads/
 2. Cliquez sur le gros bouton jaune **"Download Python 3.x.x"**
+   - ✅ Si c'est **Python 3.11** ou **3.12**, c'est parfait !
+   - ⚠️ Si c'est **Python 3.8 ou moins**, allez dans "All releases" et choisissez **Python 3.11**
 3. Attendez que le fichier se télécharge (environ 25 MB)
+
+**Version recommandée : Python 3.11** (la plus stable pour ce bot)
 
 ### Étape 2 : Installer Python
 

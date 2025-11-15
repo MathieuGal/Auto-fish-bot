@@ -9,6 +9,22 @@ from colorama import Fore, Style, init
 import config
 from fishing_bot import get_fishing_bot
 
+# Vérifier la version de Python
+PYTHON_MIN_VERSION = (3, 10)
+PYTHON_MAX_VERSION = (3, 12)
+
+if sys.version_info < PYTHON_MIN_VERSION:
+    print(f"{Fore.RED}ERREUR: Python {PYTHON_MIN_VERSION[0]}.{PYTHON_MIN_VERSION[1]}+ requis!")
+    print(f"{Fore.YELLOW}Vous utilisez Python {sys.version_info.major}.{sys.version_info.minor}")
+    print(f"{Fore.CYAN}Téléchargez Python 3.11 depuis: https://www.python.org/downloads/")
+    sys.exit(1)
+
+if sys.version_info[:2] > PYTHON_MAX_VERSION:
+    print(f"{Fore.YELLOW}ATTENTION: Python {sys.version_info.major}.{sys.version_info.minor} n'est pas testé!")
+    print(f"{Fore.YELLOW}Version recommandée: Python 3.10 - 3.12")
+    print(f"{Fore.CYAN}Le bot peut fonctionner mais certaines dépendances peuvent échouer...")
+    print()
+
 # Initialiser colorama
 init(autoreset=True)
 
