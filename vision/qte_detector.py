@@ -36,9 +36,9 @@ class QTEDetector:
         self.qte_region = (region_x, region_y, region_width, region_height)
 
         # Calculer les tolérances d'alignement basées sur la résolution
-        # Tolérances réduites pour cliquer seulement quand parfaitement aligné
-        self.center_tolerance = int(self.screen_width * 0.010)  # ~1.0% de la largeur (réduit)
-        self.radius_tolerance = int(self.screen_width * 0.005)  # ~0.5% de la largeur (réduit)
+        # Tolérances ultra-strictes pour cliquer au moment précis d'alignement
+        self.center_tolerance = int(self.screen_width * 0.010)  # ~1% de la largeur
+        self.radius_tolerance = int(self.screen_width * 0.008)  # ~0.8% de la largeur (ultra strict)
 
         print(f"[QTE] Résolution détectée: {self.screen_width}×{self.screen_height}")
         print(f"[QTE] Région de détection: ({region_x}, {region_y}) → ({region_x + region_width}, {region_y + region_height})")
@@ -156,17 +156,50 @@ class QTEDetector:
         kernel = np.ones((3, 3), np.uint8)
         white_mask = cv2.morphologyEx(white_mask, cv2.MORPH_CLOSE, kernel)
 
-        # Détecter les cercles avec Hough Transform (paramètres plus permissifs)
-        # Adapté pour hautes résolutions et cercles moins nets
+        # MÉTHODE 1 : Détection par contours (plus robuste pour cercles épais)
+        contours, _ = cv2.findContours(white_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        if contours:
+            # Trouver le plus grand contour circulaire
+            largest_circle = None
+            max_area = 0
+            min_area = 100  # Seuil minimum pour éviter le bruit
+
+            for contour in contours:
+                area = cv2.contourArea(contour)
+                if area < min_area:
+                    continue
+
+                # Approximer le contour par un cercle
+                ((x, y), radius) = cv2.minEnclosingCircle(contour)
+
+                # Vérifier si c'est assez circulaire (permissif pour cercles épais)
+                perimeter = cv2.arcLength(contour, True)
+                if perimeter == 0:
+                    continue
+
+                circularity = 4 * np.pi * area / (perimeter ** 2)
+
+                # Les cercles épais ont une circularité plus faible
+                # Accepter les contours avec circularité > 0.3 et rayon > 50px
+                if circularity > 0.3 and radius > 50 and area > max_area:
+                    max_area = area
+                    largest_circle = (int(x), int(y), int(radius))
+
+            if largest_circle:
+                return largest_circle
+
+        # MÉTHODE 2 : Hough Transform en fallback (paramètres ajustés)
+        # Augmentation drastique de maxRadius pour supporter les grands cercles
         circles = cv2.HoughCircles(
             white_mask,
             cv2.HOUGH_GRADIENT,
             dp=1,
             minDist=50,
-            param1=30,  # Réduit de 50 à 30 (seuil Canny plus bas = détecte cercles moins nets)
-            param2=25,  # Augmenté de 15 à 25 (seuil accumulateur plus haut = moins de faux positifs)
-            minRadius=5,  # Réduit de 10 à 5 (cercles plus petits)
-            maxRadius=150  # Augmenté de 100 à 150 (cercles plus grands pour hautes résolutions)
+            param1=30,  # Seuil Canny bas pour cercles moins nets
+            param2=20,  # Seuil accumulateur réduit pour plus de permissivité
+            minRadius=50,  # Cercles >= 50px seulement (évite le bruit)
+            maxRadius=400  # Augmenté de 150 à 400 pour hautes résolutions
         )
 
         if circles is None:

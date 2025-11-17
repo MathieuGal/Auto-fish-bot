@@ -75,7 +75,7 @@ LOG_TO_FILE = True
 LOG_FILE = 'fishing_bot.log'
 
 # Affichage visuel de debug
-SHOW_DEBUG_WINDOW = False  # Afficher une fenêtre avec la détection en temps réel
+SHOW_DEBUG_WINDOW = True  # Afficher une fenêtre avec la détection en temps réel
 DEBUG_WINDOW_SCALE = 0.5  # Échelle de la fenêtre de debug (0.5 = 50%)
 
 # ==================== STATISTIQUES ====================
